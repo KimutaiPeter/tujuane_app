@@ -1,11 +1,13 @@
 import bodyParser from 'body-parser'
 import express from 'express'
 import db_connect from './Db_con.js'
-import API  from  './API/api.js'
-import AUTH from './API/Pages/Auth/auth.js'
 import cors from 'cors'
 import session from 'express-session'
 import global from './global.js'
+//APIs
+import API  from  './API/api.js'
+import AUTH from './API/Pages/Auth/auth.js'
+import Index from './API/Pages/Index/index.js'
 
 
 
@@ -30,6 +32,8 @@ app.use(session({
 //API
 app.use('/api',API)
 app.use('/auth',AUTH)
+app.use('/index',Index)
+app.use('/',AUTH)
 
 app.get('/',(req,res)=>{
     res.send('Hello World')

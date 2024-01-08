@@ -1,9 +1,13 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useParams } from "react-router-dom";
 
 export default function Chat_view(props) {
     const {recipient_id}=useParams()
+
+    useEffect((()=>{
+        console.log(props.current_recipient)
+    }),[])
 
 
     return (
@@ -14,10 +18,9 @@ export default function Chat_view(props) {
                     <div class="contact_container">
                         <img src="./assets/back_icon.svg" alt="" onClick={(e)=>{ props.navy('index')  }}/>
 
-                            <img src="./assets/profile.png" alt=""></img>
-
+                            <img src={props.current_recipient.profile_photo_url} alt=""></img>
                                 <div class="chat_details">
-                                    <span>Muhamed Rayan</span>
+                                    <span>{props.current_recipient.display_name}</span>
                                     <span>Online {recipient_id}</span>
                                 </div>
                                 <div>
