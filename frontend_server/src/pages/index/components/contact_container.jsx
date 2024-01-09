@@ -7,7 +7,6 @@ export default function Contact_conainer(props) {
     
 
     useEffect((() => {
-        console.log('Hello world')
         var date_n_time = props.data.updatedAt
         //last_seen_date_time(props.data.updatedAt)
         set_my_details(props.data)
@@ -20,10 +19,10 @@ export default function Contact_conainer(props) {
 
             <div className="chat_details" onClick={(e) => { props.chat_with_individual(props.data) }}>
                 <span>{my_details.display_name}</span>
-                <span>Hello world</span>
+                <span></span>
             </div>
             <div>
-                <span>{(()=>{
+                <span className="time_status" >{(()=>{
                     if(props.data.updatedAt){
                         return last_seen_date_time(props.data.updatedAt) 
                     }
@@ -38,7 +37,6 @@ export default function Contact_conainer(props) {
     //If its today last seen time
     //If its more than 24hours use the date
     function last_seen_date_time(data) {
-        console.log(data)
         var year = parseInt(data.split('T')[0].split('-')[0])
         var month = parseInt(data.split('T')[0].split('-')[1])
         var day = parseInt(data.split('T')[0].split('-')[2])
@@ -49,10 +47,8 @@ export default function Contact_conainer(props) {
         var now = new Date()
 
         if ((Math.abs(now - last_update)) > 8.64e+7) {
-            console.log(data.split('T')[0])
             return data.split('T')[0]
         } else {
-            console.log(hour + ":" + min)
             return hour + ":" + min
         }
     }

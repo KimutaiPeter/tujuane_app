@@ -25,6 +25,7 @@ export default function Index() {
     const [my_details, set_my_details] = useState({ 'display_name': null, 'email': null, 'sid': null })
     const [friends_data, set_friends_data]=useState([])
     const [current_recipient,set_current_recipient]=useState({})
+    const [my_sid,set_sid]=useState(null)
 
 
     useEffect((() => {
@@ -32,6 +33,70 @@ export default function Index() {
         get_friends_data()
         console.log('The page is now loaded')
     }), [])
+
+
+    useEffect((()=>{
+        send_connection_status()
+    }),[my_sid])
+    useEffect(()=>{
+        send_connection_status()
+    },[my_details])
+
+
+
+
+    useEffect(() => {
+        socket.on('connect', () => {
+          console.log('Connected id:', socket.id)
+          set_sid(socket.id)
+          socket.emit('greeting', "HI")
+    
+        })
+    
+        socket.on('likeupdate', (count) => {
+          console.log(count)
+        })
+    
+        socket.on('disconnect', () => {
+          console.log('I have disconnected')
+        })
+    
+        function check_connection() {
+          console.log(socket.connected)
+          return socket.connected;
+        }
+    
+        socket.on("connect_error", () => {
+          console.log('Connection to the server has some issues')
+          socket.connect();
+        });
+    
+        function reconnect() {
+          socket.connect()
+        }
+    
+        function get_session_count() {
+          socket.emit('get_users_count', 101)
+        }
+    
+        socket.on('receive_user_count', (data) => {
+          console.log(data)
+        })
+    
+        socket.on('message_from_server', (message) => {
+          console.log(message)
+        })
+    
+        socket.on('message_from_group', (message) => {
+          console.log(message)
+          set_messages(messages => ([...messages, String("<group>"+message) ]));
+        })
+    
+        socket.on('message_from_individual', (message) => {
+          console.log(message)
+        })
+    
+      }, [socket])
 
 
     //Detect on backpress
@@ -48,14 +113,19 @@ export default function Index() {
         //The auth data is saved in local storage, if its not there then authenticate again
         if (localStorage.getItem('my_details')) {
             var item=localStorage.getItem('my_details')
-            set_my_details(JSON.parse(item))
+            var stored_data=JSON.parse(item)
+            console.log('stored data',stored_data)
+            send_auth_data(stored_data)
+            set_my_details({...my_details,'display_name': stored_data['display_name'], 'email': stored_data['email']} )
             set_page('index')
+            
         } else {
             const auth = getAuth();
             const user = auth.currentUser;
             if (user) {
                 // The user is authenticated.
                 console.log(user)
+                
                 set_page('index')
             } else {
                 // The user is not authenticated.
@@ -66,10 +136,11 @@ export default function Index() {
 
     }
 
-    function auth_result_data(data) {
+    async function auth_result_data(data) {
         console.log(data)
-        set_my_details({ 'display_name': data['display_name'], 'email': data['email'], 'sid': null })
-        localStorage.setItem('my_details',JSON.stringify({ 'display_name': data['display_name'], 'email': data['email'], 'sid': null }))
+        set_my_details({... my_details, 'display_name': data['display_name'], 'email': data['email']})
+        localStorage.setItem('my_details',JSON.stringify({ 'display_name': data['display_name'], 'email': data['email'], 'sid': null,'photoURL':data['photoURL'] }))
+        send_auth_data(data)
         set_page('index')
     }
 
@@ -78,6 +149,21 @@ export default function Index() {
         console.log(user_data)
         set_current_recipient(user_data)
         set_page('chat')
+    }
+
+    function send_connection_status(){
+        if(my_details.email!= null && my_sid != null ){
+            console.log('Sending connectivity status')
+            ai_send_api('/index/socketio_connection_confirmation',{'email':my_details.email,'sid':my_sid})
+
+        }else{
+            console.log('Not all the data was found',{my_details,my_sid})
+        }
+    }
+
+    function send_auth_data(data){
+        console.log('sending auth data',data)
+        ai_send_api('/auth/sign_in',data)
     }
 
     function navy(page) {
@@ -101,59 +187,7 @@ export default function Index() {
     )
 
 
-    useEffect(() => {
 
-        socket.on('connect', () => {
-            console.log('Connected id:', socket.id)
-            socket.emit('greeting', "HI")
-            set_status_message('Connected id:' + String(socket.id))
-
-        })
-
-        socket.on('likeupdate', (count) => {
-            console.log(count)
-        })
-
-        socket.on('disconnect', () => {
-            console.log('I have disconnected')
-        })
-
-        function check_connection() {
-            console.log(socket.connected)
-            return socket.connected;
-        }
-
-        socket.on("connect_error", () => {
-            console.log('Connection to the server has some issues')
-            socket.connect();
-        });
-
-        function reconnect() {
-            socket.connect()
-        }
-
-        function get_session_count() {
-            socket.emit('get_users_count', 101)
-        }
-
-        socket.on('receive_user_count', (data) => {
-            console.log(data)
-        })
-
-        socket.on('message_from_server', (message) => {
-            console.log(message)
-        })
-
-        socket.on('message_from_group', (message) => {
-            console.log(message)
-            set_messages(messages => ([...messages, String("<group>" + message)]));
-        })
-
-        socket.on('message_from_individual', (message) => {
-            console.log(message)
-        })
-
-    }, [socket])
 
 
     //Universal Functions
