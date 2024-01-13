@@ -7,7 +7,7 @@ import Search_n_contact from "./main_components/search_n_contacts";
 export default function Index_view(props) {
 
     useEffect((()=>{
-        console.log('Hello world',props.my_details)
+        console.log('Index page now loaded:',props.my_details)
     }),[])
 
     return (

@@ -27,7 +27,7 @@ router.post('/sign_in', async (req, res) => {
         let user_doc = await User.findOne({ 'email': data.email })
         await user_doc.updateOne({ 'status': 'active' })
         var result = await user_doc.save()
-        res.json({ status: 'success', message: 'Welcome back user' })
+        res.json({ status: 'success', message: 'Welcome back user','data': result })
 
     } else {
         // Insert data to the database
