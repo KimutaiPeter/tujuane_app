@@ -15,7 +15,7 @@ export default function Message(props) {
                 if (props.messege['sender_id'] === props.my_details['_id']) {
                     return (
                         <>
-                            <div className="sent_message_container">
+                            <div className="sent_message_container" onFocus={(e)=>{console.log("Message with id "+messege+" has been sent")}}>
                                 <div className="sent_message_content">
                                     <div className="sent_message">
                                         <span>{props.messege['body']}</span>
@@ -33,7 +33,7 @@ export default function Message(props) {
                                     <div className="received_message" >
                                         <span>{props.messege['body']}</span>
                                     </div>
-                                    <span>{time} {props.messege['status']}</span>
+                                    <span>{time}</span>
                                 </div>
                             </div>
 

@@ -3,18 +3,22 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import io from 'socket.io-client'
 import { Dexie } from 'dexie'
+
 //Firebase 
 import { provider, auth } from "../global/config.js";
 import { signInWithPopup } from "firebase/auth";
 import { getAuth } from "firebase/auth";
+
 //Pages
 import Login_view from "./login/Login";
 import Index_view from "./index/index_view";
 import Chat_view from "./chat/chat_view.jsx";
+
 //css
 import './css/style.css'
 import './css/login.css'
 import './css/chat.css'
+
 //Global variables
 import global from "../global/global.js";
 
@@ -23,7 +27,8 @@ import global from "../global/global.js";
 //Creating the database
 const db = new Dexie('Tujuane')
 db.version(1).stores({
-  messages: '++id,message_id,sender_id,recipient_id,body,media_url,message_type,reaction_id,status'
+  messages: '++id,message_id,sender_id,recipient_id,body,media_url,message_type,reaction_id,status',
+  users: "email,_id,display_name,phone,profile_photo_url,sid,status,createdAt,updatedAt,__v"
 })
 
 
@@ -34,9 +39,11 @@ export default function Index() {
   const [page, set_page] = useState('login')
   const [my_details, set_my_details] = useState({ 'display_name': null, 'email': null, 'sid': null })
   const [friends_data, set_friends_data] = useState([])
+  const [friends_data_status_detected, set_friends_data_status_detected] = useState("No")
   const [current_recipient, set_current_recipient] = useState(null)
   const [my_sid, set_sid] = useState(null)
   const [messages, set_messages] = useState([])
+  const [message_change_detected, set_message_change_detected] = useState(false)
 
 
   useEffect((() => {
@@ -46,12 +53,21 @@ export default function Index() {
   }), [])
 
 
+
+
   useEffect((() => {
     send_connection_status()
   }), [my_sid])
   useEffect(() => {
     send_connection_status()
   }, [my_details])
+  useEffect((()=>{
+    if(friends_data_status_detected==="Yes"){
+      set_friends_data_status_detected("Updating...")
+      get_friends_data()
+      
+    }
+  }),[friends_data_status_detected])
 
 
 
@@ -84,6 +100,7 @@ export default function Index() {
 
     function reconnect() {
       socket.connect()
+      console.log('Socket reconnected')
     }
 
     function get_session_count() {
@@ -92,6 +109,11 @@ export default function Index() {
 
     socket.on('receive_user_count', (data) => {
       console.log(data)
+    })
+
+    socket.on('sent_confirmation', (data) => {
+      console.log(data)
+      handle_received_confirmation(data)
     })
 
     socket.on('message_from_server', (message) => {
@@ -104,11 +126,12 @@ export default function Index() {
 
     socket.on('broadcast_connectivity_status', (message) => {
       console.log(message)
-
+      handle_broadcast_status(message)
     })
 
-    socket.on('message_from_individual', (message) => {
-      console.log(message)
+    socket.on('received_message', (message) => {
+      //Add message to the data base
+      handle_received_messages(message)
     })
 
   }, [socket])
@@ -121,6 +144,19 @@ export default function Index() {
   });
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+  //Functions That handle initialization data**************************************************************************************************
   function get_user_details() {
     //The auth data is saved in local storage, if its not there then authenticate again
     if (localStorage.getItem('my_details')) {
@@ -158,25 +194,30 @@ export default function Index() {
 
 
   function chat_with_individual(user_data) {
-    console.log(user_data)
+    console.log('I am chatting with:', user_data)
     set_current_recipient(user_data)
     set_page('chat')
   }
 
+
+
   function send_connection_status() {
     if (my_details.email != null && my_sid != null) {
       console.log('I am connected,Sending connectivity status')
+      //Backend_server
       ai_send_api('/index/socketio_connection_confirmation', { 'email': my_details.email, 'sid': my_sid })
+      //Socketio_server
+      socket.emit('auth_data', { 'email': my_details.email, 'sid': my_sid })
 
     } else {
-      console.log('Not all the data was found', { my_details, my_sid })
+      console.log('Not all the data was found, I will send it when loaded', { my_details, my_sid })
     }
   }
 
   function send_disconnection_status() {
     if (my_details.email != null && my_sid != null) {
-      console.log('I am connected,Sending connectivity status')
-      ai_send_api('/index/socketio_connection_confirmation', { 'email': my_details.email, 'sid': my_sid })
+      console.log('I am disconnected,Sending connectivity status')
+      ai_send_api('/index/socketio_connection_confirmation', { 'email': my_details.email })
 
     } else {
       console.log('Not all the data was found', { my_details, my_sid })
@@ -184,17 +225,45 @@ export default function Index() {
   }
 
   async function send_auth_data(data) {
-    console.log('sending auth data')
-    var responce= await ai_send_api('/auth/sign_in', data)
+    console.log('sending auth data', data)
+    var responce = await ai_send_api('/auth/sign_in', data)
     //Handle if the responce is not successfull
     await set_my_details(responce.data)
     localStorage.setItem('my_details', JSON.stringify(responce.data))
+    //Sending auth data to socketio server to broadcast the data
+
   }
 
+  async function get_friends_data() {
+    var response_data = await ai_send_api('/index/get_users', my_details)
+    console.log("Getting users data",response_data)
+    set_friends_data(response_data.data)
+    bulk_users_add(response_data.data)
+    console.log(response_data, friends_data)
+
+    set_friends_data_status_detected("No")
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+  //************SWITCHES************************************************************************************** */
   function navy(page) {
     set_page(page)
   }
 
+  function switch_message_change_detected(bool) {
+    set_message_change_detected(bool)
+  }
 
 
 
@@ -203,16 +272,38 @@ export default function Index() {
 
 
 
-//********************************************PAGES************************************************** */
+
+
+
+
+
+
+
+  //***************************Handle other peoples change in status************************************************************************************ */
+  function handle_broadcast_status(data) {
+    console.log('This will be handled in a minute', data)
+    update_user_sid(data.data['_id'], data.data['sid'])
+    set_friends_data_status_detected("Yes")
+
+  }
+
+
+
+
+
+
+
+
+  //********************************************PAGES************************************************** */
   return (
     <>
       {(() => {
         if (page === 'login') {
           return (<Login_view auth_result_data={auth_result_data} />)
         } else if (page === 'index') {
-          return (<Index_view my_details={my_details} send_api={send_api} friends_data={friends_data} chat_with_individual={chat_with_individual} />)
+          return (<Index_view my_details={my_details} send_api={send_api} friends_data={friends_data} chat_with_individual={chat_with_individual} friends_data_status_detected={friends_data_status_detected}/>)
         } else if (page === 'chat') {
-          return (<Chat_view my_details={my_details} send_message={send_message} current_recipient={current_recipient} chat_with_individual={chat_with_individual} messages={messages} messages_update_needed={messages_update_needed} navy={navy} />)
+          return (<Chat_view my_details={my_details} message_change_detected={message_change_detected} db={db} send_message={send_message} current_recipient={current_recipient} chat_with_individual={chat_with_individual} messages={messages} navy={navy} switch_message_change_detected={switch_message_change_detected} friends_data_status_detected={friends_data_status_detected} />)
         }
       })()}
     </>
@@ -285,27 +376,44 @@ export default function Index() {
   }
 
 
-  //Functions That handle initialization data
-  async function get_friends_data() {
-    var response_data = await ai_send_api('/index/get_users', my_details)
-    console.log(response_data)
-    set_friends_data(response_data.data)
-    console.log(response_data, friends_data)
-  }
-
-
-
-
-
-
 
 
 
   //**************Functions using socketIO Handling Sending and receiving messages*************************************************************************************** */
-  async function send_message(message){
-    await add_message(message)
-    messages_update_needed()
+  async function send_message(message) {
+    var message_local_id = await add_message(message)
+    message['local_message_id'] = message_local_id
+    //Check if connected
+    if (socket.connected) {
+      socket.emit('relay_2_individual', message, (err) => {
+        if (!err) {
+          console.log('1 Message sent to socketio server or not, I dono')
+        } else {
+          console.log('2 Message sent to socketio server or not, I dono')
+        }
+      })
+    } else {
+      console.log('I cant send a message, Im disconnected')
+      update_status_message(message_local_id, 'not sent')
+      set_message_change_detected(true)
+    }
+    set_message_change_detected(true)
   }
+
+
+  async function handle_received_confirmation(id) {
+    //Update the database
+    await update_status_message(id, "sent")
+    console.log('Updating sent message:', id)
+    set_message_change_detected(true)
+  }
+
+  async function handle_received_messages(message) {
+    console.log('Handling received message')
+    await add_message(message)
+    await set_message_change_detected(true)
+  }
+
 
 
 
@@ -319,22 +427,19 @@ export default function Index() {
   //**Database functions************************************************************************************** */
   //Database Syncronyzation
   async function messages_update_needed() {
-    if (current_recipient) {
-      var message_items = await db.messages.where('recipient_id').equals(current_recipient['_id']).or('recipient_id').equals(my_details['_id']).toArray();
-      console.log('Found messages:',message_items)
-      set_messages(message_items)
-    }
+    console.log("The main message updater has failed me")
   }
 
   //Functions to handle messages in the database
   async function add_message(message) {
+    console.log(message)
     var messages_count = await db.messages.count();
-    db.messages.add({ id: messages_count + 1, 'message_id': "To be decided", sender_id: message.sender_id, recipient_id: message.recipient_id, body: message.body, media_url: message.media_url, message_type: message.message_type, reaction_id: message.reaction_id, status: message.status, date: message.date})
+    db.messages.add({ id: messages_count + 1, 'message_id': "To be decided", sender_id: message.sender_id, recipient_id: message.recipient_id, body: message.body, media_url: message.media_url, message_type: message.message_type, reaction_id: message.reaction_id, status: message.status, date: message.date })
+    return messages_count + 1
   }
 
-  async function update_message(id, completed) {
-    await db.messages.update(id, { 'completed': completed });
-
+  async function update_status_message(id, new_status) {
+    await db.messages.update(id, { 'status': new_status });
   }
 
   async function delete_message(id) {
@@ -347,12 +452,26 @@ export default function Index() {
 
   }
 
-  async function bulk_add(data) {
+  async function bulk_messages_add(data) {
     db.messages.bulkAdd(data).then(() => {
       console.log('Items added successfully!');
     }).catch(error => {
       console.error('Error adding items:', error);
     });
+  }
+
+  async function bulk_users_add(data) {
+    console.log('Getting users data', data)
+    db.users.clear()
+    db.users.bulkAdd(data).then(() => {
+      console.log('Items added successfully!');
+    }).catch(error => {
+      console.error('Error adding items:', error);
+    });
+  }
+
+  async function update_user_sid(id, new_sid) {
+    await db.users.update(id, { 'sid': new_sid });
   }
 
 }

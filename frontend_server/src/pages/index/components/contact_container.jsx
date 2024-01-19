@@ -7,24 +7,26 @@ export default function Contact_conainer(props) {
     
 
     useEffect((() => {
-        var date_n_time = props.data.updatedAt
+        var date_n_time = props.user.updatedAt
         //last_seen_date_time(props.data.updatedAt)
-        set_my_details(props.data)
+        set_my_details(props.user)
     }), [])
 
 
     return (
         <div className="contact_container">
-            <img src={props.data.profile_photo_url} alt=""></img>
+            <img src={props.user.profile_photo_url} alt=""></img>
 
-            <div className="chat_details" onClick={(e) => { props.chat_with_individual(props.data) }}>
+            <div className="chat_details" onClick={(e) => { props.chat_with_individual(props.user) }}>
                 <span>{my_details.display_name}</span>
                 <span></span>
             </div>
             <div>
                 <span className="time_status" >{(()=>{
-                    if(props.data.updatedAt){
-                        return last_seen_date_time(props.data.updatedAt) 
+                    if(props.user.status==="connected" || props.user.status==="online"){
+                        return ("online") 
+                    }else{
+                        return last_seen_date_time(props.user.updatedAt)
                     }
                 })()}</span>
             </div>
